@@ -1,2 +1,5 @@
 # Pokedex-151
-Pequeña red neuronal para identificar pokémon
+Small neural network to identify pokémon.
+
+* *Tensorflow* & *pygame* required
+* Follow instructions on /Modelo/variables/variables.md to get missing file
