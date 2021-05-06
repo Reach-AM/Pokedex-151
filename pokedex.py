@@ -1,7 +1,9 @@
 import math
 import numpy as np
+import pandas as pd
 import platform
 import pygame
+from pygame import mixer
 import os
 import tensorflow as tf
 from tensorflow import keras
@@ -24,10 +26,14 @@ else:
 ############################################################
 x_width, y_width = 512, 808
 pygame.init()
+mixer.init()
 load_screen = pygame.image.load(path + 'load.png')
 icono = pygame.image.load(path + 'icon.png')
+mixer.music.load(path + "song.mp3")
 screen = pygame.display.set_mode((x_width, y_width))
 screen.blit(load_screen, (0,0))
+mixer.music.set_volume(0.05)
+mixer.music.play(loops = -1)
 pygame.display.set_icon(icono)
 pygame.display.set_caption("Pokedex")
 pygame.display.update()
@@ -70,13 +76,17 @@ class_names = ['Abra', 'Aerodactyl', 'Alakazam', 'Arbok', 'Arcanine', 'Articuno'
 
 background = pygame.image.load(path + 'dex.png')
 typo_title = pygame.image.load(path + 'typo1.png')
+sound = pygame.image.load(path + 'sound.png')
+Font=pygame.font.Font(path+'Pixel-Regular.ttf', 16)
+FontS=pygame.font.Font(path+'Pixel-Regular.ttf', 10)
+
+flavor = pd.read_csv(path + 'flavor.csv')
 
 number_of_tests = 0
 for base, dirs, files in os.walk(toys_path):
     for file in files:
       if(file != '.DS_Store'):
         number_of_tests  += 1
-
 
 toys = []
 for i in range(number_of_tests):
@@ -87,7 +97,7 @@ for i in range(number_of_tests):
 ############################################################
 
 margin =  13
-sc_height = 11 + 105*(math.floor(len(toys)/4)) - 2
+sc_height = 11 + 105*(math.floor(len(toys)/4)) - 2 + 26
 print("holaaaa")
 print(sc_height)
 print(len(toys))
@@ -107,6 +117,7 @@ def Background():
 
 def MainMenu():
   global img_act
+  soundon = True
   click, scroll_y  = False, 0
   while True:
     screen.fill((230, 230, 230))
@@ -122,11 +133,33 @@ def MainMenu():
 
     Background()
     Imagenes_Prueba(click, mouse_x, mouse_y, scroll_y)
+    soundon = TitleBar(click, mouse_x, mouse_y, soundon)
     if (img_act > -1):
       Resultado()
 
     click = False
     pygame.display.update()
+
+def TitleBar(click, mouse_x, mouse_y, soundon):
+    letter=Font.render("Gallery", False, (230,230,230),(20,20,20))
+    w, h = Font.size("Gallery")
+    pygame.draw.rect(screen, (20, 20, 20), (39, 443,434,27),border_radius =  4)
+    pygame.draw.rect(screen, (20, 20, 20), (39, 448,434,22))
+    sx = 444
+    soundButton = pygame.Rect(sx, 444.5, 24, 24)
+    pygame.draw.rect(screen, (20, 20, 20), soundButton)
+
+    if soundButton.collidepoint((mouse_x, mouse_y)) and click:
+        soundon = not soundon
+    if soundon:
+        screen.blit(sound, (sx,444.5), (0,0,24,24))
+        mixer.music.set_volume(0.05)
+    else:
+        screen.blit(sound, (sx,444.5), (24,0,24,24))
+        mixer.music.set_volume(0)
+    screen.blit(letter, (44+424/2-w/2,445))
+    return soundon
+
 
 ############################################################
 ################### Pantalla de Imagenes ###################
@@ -134,7 +167,7 @@ def MainMenu():
 
 def Imagenes_Prueba(click, mouse_x, mouse_y, scroll_y):
   global img_act, prediccion, porcentaje
-
+  adjustment = 26
   options = pygame.surface.Surface((424, sc_height))
   options.fill((230, 230, 230))
   select = []
@@ -143,12 +176,12 @@ def Imagenes_Prueba(click, mouse_x, mouse_y, scroll_y):
       column = i - 4 * row
       toy = pygame.transform.scale(toys[i], (92, 92))
       if column >= 2:
-        select.append(pygame.Rect(margin - 4 + (92+margin) * column - 2, margin + (92+margin) * row - 3, 94, 94))
-        options.blit(toy, (margin - 4 + (92+margin) * column - 1, margin + (92+margin) * row - 2))
+        select.append(pygame.Rect(margin - 4 + (92+margin) * column - 2, margin + (92+margin) * row - 3 + adjustment, 94, 94))
+        options.blit(toy, (margin - 4 + (92+margin) * column - 1, margin + (92+margin) * row - 2 + adjustment))
         pygame.draw.rect(options, (0, 0, 0), select[i], 2, 2)
       else:
-        select.append(pygame.Rect(margin - 4 + (92+margin) * column - 1, margin + (92+margin) * row - 3, 94, 94))
-        options.blit(toy, (margin - 4 + (92+margin) * column, margin + (92+margin) * row - 2))
+        select.append(pygame.Rect(margin - 4 + (92+margin) * column - 1, margin + (92+margin) * row - 3 + adjustment, 94, 94))
+        options.blit(toy, (margin - 4 + (92+margin) * column, margin + (92+margin) * row - 2 + adjustment))
         pygame.draw.rect(options, (0, 0, 0), select[i], 2, 2)
   for i in range(len(select)):
     if select[i].collidepoint((mouse_x-44-1, mouse_y-444+scroll_y-1)):
@@ -228,7 +261,28 @@ def Real(prediccion):
     num = dex.index(prediccion) + 1
     sprite = pygame.image.load(sprites_path + str(num) + '.png')
     sprite = pygame.transform.scale(sprite, (128, 128))
+    Flavor(num-1)
     screen.blit(sprite, (330, 40 + 70))
+
+def Flavor(num):
+    txt = flavor.iloc[num]['flavor_text']
+    txt = txt.replace("\n"," ")
+    txt = txt.replace("\x0c"," ")
+    txt = txt.split(" ")
+    sentence = []
+    act = '\"'
+    for i in range(len(txt)):
+        w, h = FontS.size(act + txt[i] + ' ')
+        if(w <= 158):
+            act = act + ' ' + txt[i]
+        else:
+            sentence.append(act)
+            act = txt[i]
+    sentence.append(act+'\"')
+    for i in range(len(sentence)):
+        text = FontS.render(sentence[i], False, (20,20,20),(230,230,230))
+        w, h = FontS.size(sentence[i])
+        screen.blit(text, (387 - w/2, 254 + i*16))
 
 ############################################################
 ########################### Fin ############################
